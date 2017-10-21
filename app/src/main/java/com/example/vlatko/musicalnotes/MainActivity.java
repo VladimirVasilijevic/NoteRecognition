@@ -17,6 +17,10 @@ public class MainActivity extends AppCompatActivity {
 
     private TextView pitchText;
     private TextView noteText;
+    private int m_number_of_half_steps;
+    private final int c_pitch_A = 220;
+    private final int c_base = 2;
+    private final int c_12_tone_pitch = 12;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,6 +52,10 @@ public class MainActivity extends AppCompatActivity {
         return (Math.log(x) / Math.log(base));
     }
 
+    private int number_of_half_steps(float pitchInHz) {
+        return (int) Math.round(c_12_tone_pitch * log(pitchInHz / c_pitch_A, c_base));
+    }
+
     public void processPitch(float pitchInHz) {
 
         //View rootView = inflater.inflate(R.layout.fragment_main, container, false);
@@ -56,8 +64,82 @@ public class MainActivity extends AppCompatActivity {
 
         pitchText.setText("" + pitchInHz);
 
-        int n = (int) (12 * log(pitchInHz / 220, 2));
-        noteText.setText("" + n);
+        int m_number_of_half_steps = number_of_half_steps(pitchInHz);
+        //noteText.setText("" + m_number_of_half_steps);
+
+        switch (m_number_of_half_steps % c_12_tone_pitch) {
+            case -11://Bb
+                noteText.setText("Bb");
+                break;
+            case -10://B
+                noteText.setText("B");
+                break;
+            case -9://C
+                noteText.setText("C");
+                break;
+            case -8://C#
+                noteText.setText("C#");
+                break;
+            case -7://D
+                noteText.setText("D");
+                break;
+            case -6://Eb
+                noteText.setText("Eb");
+                break;
+            case -5://E
+                noteText.setText("E");
+                break;
+            case -4://F
+                noteText.setText("F");
+                break;
+            case -3://F#
+                noteText.setText("F#");
+                break;
+            case -2://G
+                noteText.setText("G");
+                break;
+            case -1://G#
+                noteText.setText("G#");
+                break;
+            case 0://A
+                noteText.setText("A");
+                break;
+            case 1://Bb
+                noteText.setText("Bb");
+                break;
+            case 2://B
+                noteText.setText("B");
+                break;
+            case 3://C
+                noteText.setText("C");
+                break;
+            case 4://C#
+                noteText.setText("C#");
+                break;
+            case 5://D
+                noteText.setText("D");
+                break;
+            case 6://Eb
+                noteText.setText("Eb");
+                break;
+            case 7://E
+                noteText.setText("E");
+                break;
+            case 8://F
+                noteText.setText("F");
+                break;
+            case 9://F#
+                noteText.setText("F#");
+                break;
+            case 10://G
+                noteText.setText("G");
+                break;
+            case 11://G#
+                noteText.setText("G#");
+                break;
+            default:
+                noteText.setText("ERROR!!!" + m_number_of_half_steps % c_12_tone_pitch);
+        }
         /*if(pitchInHz >= 110 && pitchInHz < 123.47) {
             //A
             noteText.setText("A");
