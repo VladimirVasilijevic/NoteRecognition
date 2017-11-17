@@ -1,9 +1,7 @@
 package com.example.vlatko.musicalnotes;
 
-import android.graphics.drawable.Drawable;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -19,119 +17,85 @@ public class MainActivity extends AppCompatActivity {
 
     private TextView pitchText;
     private TextView noteText;
+    private TextView secondsProcessed;
 
     private ImageView mImageView;
 
-    private final int c_pitch_A = 220;
-    private final int c_base = 2;
-    private final int c_12_tone_pitch = 12;
     private final int c_sampleRate = 22050;
     private final int c_bufferRate = 1024;
     private final int c_number_of_notes = 8;
-    private final int c_half_spets = 45;
+
+    private Thread recordThread;
 
     private int m_note_number = 0;
+
+    AudioDispatcher m_dispatcher;
+
+    private Note m_note = new Note();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        AudioDispatcher dispatcher = AudioDispatcherFactory.fromDefaultMicrophone(c_sampleRate,c_bufferRate,0);
+        m_dispatcher = AudioDispatcherFactory.fromDefaultMicrophone(c_sampleRate,c_bufferRate,0);
 
         PitchDetectionHandler pdh = new PitchDetectionHandler() {
             @Override
             public void handlePitch(PitchDetectionResult result, AudioEvent e) {
                 final float pitchInHz = result.getPitch();
+
+                pitchText = (TextView)findViewById(R.id.note_pith);
+                noteText = (TextView)findViewById(R.id.note_text);
+                secondsProcessed = (TextView)findViewById(R.id.seconds_processed);
+
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        processPitch(pitchInHz);
+
+                        Note new_note = new Note();
+                        new_note.setPitchInHz(pitchInHz);
+                        pitchText.setText("" + pitchInHz);
+                        noteText.setText(new_note.getNoteName());
+                        secondsProcessed.setText("" + m_dispatcher.secondsProcessed());
+
+                        noteProcessing(m_dispatcher, pitchInHz);
+
                     }
                 });
             }
         };
         AudioProcessor p = new PitchProcessor(PitchProcessor.PitchEstimationAlgorithm.FFT_YIN, c_sampleRate, c_bufferRate, pdh);
-        dispatcher.addAudioProcessor(p);
-        new Thread(dispatcher,"Audio Dispatcher").start();
+        m_dispatcher.addAudioProcessor(p);
+        recordThread = new Thread(m_dispatcher,"Audio Dispatcher");
+        recordThread.start();
     }
 
-    private double log(float x, float base) {
-        return (Math.log(x) / Math.log(base));
-    }
+    private void noteProcessing(AudioDispatcher dispatcher, float pitchInHz) {
+        Note new_note = new Note();
+        new_note.setPitchInHz(pitchInHz);
+        if (new_note.isRest() && m_note.isRest()) {
+            //do noting
+        }
+        if (new_note.isRest() && !m_note.isRest()) {
+            switchToNewNote(dispatcher, pitchInHz);
 
-    private int number_of_half_steps(float pitchInHz) {
-        return (int) Math.round(c_12_tone_pitch * log(pitchInHz / c_pitch_A, c_base));
-    }
-
-    private String note(float pitchInHz) {
-        int number_of_half_steps = number_of_half_steps(pitchInHz);
-
-        switch (number_of_half_steps % c_12_tone_pitch) {
-            case -11://Bb
-                return "Bb";
-            case -10://B
-                return "B";
-            case -9://C
-                return "C";
-            case -8://C#
-                return "Ch";
-            case -7://D
-                return "D";
-            case -6://Eb
-                return "Eb";
-            case -5://E
-                return "E";
-            case -4://F
-                return "F";
-            case -3://F#
-                return "Fh";
-            case -2://G
-                return "G";
-            case -1://G#
-                return "Gh";
-            case 0://A
-                return "A";
-            case 1://Bb
-                return "Bb";
-            case 2://B
-                return "B";
-            case 3://C
-                return "C";
-            case 4://C#
-                return "Ch";
-            case 5://D
-                return "D";
-            case 6://Eb
-                return "Eb";
-            case 7://E
-                return "E";
-            case 8://F
-                return "F";
-            case 9://F#
-                return "Fh";
-            case 10://G
-                return "G";
-            case 11://G#
-                return "Gh";
-            default:
-                return ("ERROR!!!");
+        }
+        if (!new_note.isRest() && m_note.isRest()) {
+            switchToNewNote(dispatcher, pitchInHz);
+        }
+        if (!new_note.isRest() && !m_note.isRest()) {
+            if (new_note.getNoteName().compareTo(m_note.getNoteName()) != 0) {
+                switchToNewNote(dispatcher, pitchInHz);
+            }
         }
     }
 
-    public void processPitch(float pitchInHz) {
-
-        if (pitchInHz != -1) {
-            //View rootView = inflater.inflate(R.layout.fragment_main, container, false);
-            pitchText = (TextView) findViewById(R.id.note_pith);
-            noteText = (TextView) findViewById(R.id.note_text);
-
-            pitchText.setText("" + pitchInHz);
-
-            noteText.setText(note(pitchInHz));
-
-            setNoteImage(pitchInHz);
-        }
+    private void switchToNewNote(AudioDispatcher dispatcher, float pitchInHz) {
+        m_note.setNoteEnd(dispatcher.secondsProcessed());
+        setNoteImage();
+        m_note.setPitchInHz(pitchInHz);
+        m_note.setNoteStart(dispatcher.secondsProcessed());
     }
 
     private void prepareNoteImage() {
@@ -171,21 +135,40 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private int getOctave(float pitchInHz) {
-        return (number_of_half_steps(pitchInHz) + c_half_spets) / c_12_tone_pitch;
+    private void setNote(){
+        int id = getResources().getIdentifier(m_note.getImageName(), "drawable", getPackageName());
+        if (id != 0) {
+            mImageView.setImageResource(id);
+        }
     }
 
-    private void setNote(float pitchInHz){
-
-        int id = getResources().getIdentifier(note(pitchInHz).toLowerCase()+getOctave(pitchInHz), "drawable", getPackageName());
-        mImageView.setImageResource(id);
-    }
-
-    private void setNoteImage(float pitchInHz) {
-
-        prepareNoteImage();
-
-        setNote(pitchInHz);
+    private void setNoteImage() {
+        if (m_note.getImageName().compareTo("pause") != 0) {
+            prepareNoteImage();
+            setNote();
+        }
 
     }
+
+    public void onStart() {
+        super.onStart();
+        
+        //myLocationListener.start();
+    }
+
+    public void onStop() {
+        super.onStop();
+        if (this.m_dispatcher != null)
+        {
+            this.m_dispatcher.stop();
+        }
+
+        if (this.recordThread != null)
+        {
+            this.recordThread.stop();
+        }
+    }
+
+
+
 }
